@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <queries>
+    <package android:name="com.google.android.youtube" />
+    <package android:name="com.vkontakte.android" />
+    <package android:name="com.vk.vkvideo" />
+  </queries>
+  <application android:label="BlockShotsStop" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:allowBackup="false" android:supportsRtl="true" android:theme="@android:style/Theme.Material.NoActionBar" />
+</manifest>

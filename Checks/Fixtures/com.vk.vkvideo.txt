@@ -1,0 +1,15 @@
+com.vk.vkvideo:id/avatar
+com.vk.vkvideo:id/bm_title
+com.vk.vkvideo:id/cl_root_container
+com.vk.vkvideo:id/content
+com.vk.vkvideo:id/ds_internal_group_header_title
+com.vk.vkvideo:id/menu
+com.vk.vkvideo:id/recycler
+com.vk.vkvideo:id/subtitle
+com.vk.vkvideo:id/tab_clips
+com.vk.vkvideo:id/tab_create_video
+com.vk.vkvideo:id/tab_library
+com.vk.vkvideo:id/tab_main
+com.vk.vkvideo:id/tab_subscriptions
+com.vk.vkvideo:id/title
+com.vk.vkvideo:id/viewpager

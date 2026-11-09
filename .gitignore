@@ -1,0 +1,17 @@
+bin/
+obj/
+**/bin/
+**/obj/
+.vs/
+*.user
+
+*.apk
+*.aab
+source-before-*.zip
+*.keystore
+*.jks
+*.pfx
+*.p12
+.env
+.env.*
+local.properties
