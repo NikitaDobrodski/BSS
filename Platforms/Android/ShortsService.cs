@@ -19,6 +19,7 @@ public sealed class ShortsService : AccessibilityService
     private string? pendingPackage;
     private readonly Dictionary<string, long> lastDiagnosticAt = new();
     private bool exiting;
+    private bool browserBackPending;
     private bool connected;
 
     protected override void OnServiceConnected()
@@ -26,12 +27,27 @@ public sealed class ShortsService : AccessibilityService
         base.OnServiceConnected();
         connected = true;
         IsConnected = true;
+        GuardState.BrowserSubscriptionChanged -= UpdateBrowserSubscription;
+        GuardState.BrowserSubscriptionChanged += UpdateBrowserSubscription;
+        UpdateBrowserSubscription();
+    }
+
+    private void UpdateBrowserSubscription()
+    {
+        using var info = ServiceInfo;
+        if (info?.PackageNames is not { Count: > 0 } packages) return;
+        bool includeChrome = GuardState.EnabledFor(this, BrowserShortsDetector.Chrome);
+        if (includeChrome == packages.Contains(BrowserShortsDetector.Chrome)) return;
+        info.PackageNames = includeChrome
+            ? [.. packages, BrowserShortsDetector.Chrome]
+            : packages.Where(package => package != BrowserShortsDetector.Chrome).ToArray();
+        SetServiceInfo(info);
     }
 
     public override void OnAccessibilityEvent(AccessibilityEvent? e)
     {
         string? package = e?.PackageName?.ToString();
-        if (!connected || exiting || !ClipRules.IsSupported(package) ||
+        if (!connected || IsExitPending(package) || !ClipRules.IsSupported(package) ||
             !GuardState.EnabledFor(this, package!)) return;
         pendingPackage = package;
         if (scanPending) return;
@@ -42,23 +58,30 @@ public sealed class ShortsService : AccessibilityService
         {
             scanPending = false;
             string? requested = pendingPackage;
-            if (!connected || exiting || requested is null || !GuardState.EnabledFor(this, requested)) return;
+            if (!connected || requested is null || IsExitPending(requested) || !GuardState.EnabledFor(this, requested)) return;
             GuardState.Preferences(this).Edit()!.PutString("event:" + requested,
                 DateTime.Now.ToString("dd.MM HH:mm:ss"))!.Apply();
             ScanCurrentScreen(requested);
         }, 180);
     }
 
+    private bool IsExitPending(string? package) =>
+        package == BrowserShortsDetector.Chrome ? browserBackPending : exiting;
+
     private void ScanCurrentScreen(string requested)
     {
-        var snapshot = ReadScreen();
+        var snapshot = ReadScreen(requested);
         string status = snapshot is null ? "Активное окно недоступно или уже сменилось" :
             snapshot.Package != requested ? "Активно другое поддерживаемое приложение" : "Структура получена";
         GuardState.Preferences(this).Edit()!.PutString("scan:" + requested, status)!.Apply();
         if (snapshot is null || snapshot.Package != requested || !GuardState.EnabledFor(this, snapshot.Package)) return;
         SaveDiagnostics(snapshot);
         if (!snapshot.ShouldBlock) return;
-        exiting = true;
+        bool browser = snapshot.Package == BrowserShortsDetector.Chrome;
+        if (browser)
+            browserBackPending = true;
+        else
+            exiting = true;
         if (PerformGlobalAction(GlobalAction.Back))
         {
             var prefs = GuardState.Preferences(this);
@@ -66,10 +89,15 @@ public sealed class ShortsService : AccessibilityService
         }
         handler.PostDelayed(() =>
         {
+            if (browser)
+            {
+                browserBackPending = false;
+                return;
+            }
             // Only the same app may receive fallback Home. Re-read its screen.
             if (connected && GuardState.EnabledFor(this, snapshot.Package))
             {
-                var current = ReadScreen();
+                var current = ReadScreen(snapshot.Package);
                 if (current?.Package == snapshot.Package && current.ShouldBlock)
                     PerformGlobalAction(GlobalAction.Home);
             }
@@ -85,6 +113,14 @@ public sealed class ShortsService : AccessibilityService
         lastDiagnosticAt[screen.Package] = now;
         string playerDetails = screen.Package switch
         {
+            BrowserShortsDetector.Chrome => screen.BrowserState switch
+            {
+                BrowserShortsState.YouTubeShorts => "Правило: YouTube Shorts в Chrome\n",
+                BrowserShortsState.Editing => "Адресная строка в режиме ввода\n",
+                BrowserShortsState.YouTubeWithoutPath => "Chrome передал домен YouTube без пути\n",
+                BrowserShortsState.OtherPage => "Адрес не совпал с правилом Shorts\n",
+                _ => "Адресная строка недоступна\n"
+            },
             ClipRules.Instagram => $"Найден полноэкранный Reels: {screen.HasFullscreenVideoPager}\n",
             ClipRules.TikTok => $"Найден полноэкранный пейджер TikTok: {screen.HasFullscreenVideoPager}\n" +
                                 $"Найден видеоплеер внутри пейджера: {screen.HasTikTokVideoPlayer}\n",
@@ -93,21 +129,52 @@ public sealed class ShortsService : AccessibilityService
         };
         string report = $"BSS\nПакет: {screen.Package}\nВремя: {DateTime.Now:dd.MM HH:mm:ss}\n" +
             $"Правило совпало: {screen.ShouldBlock}\n" + playerDetails +
-            "Структура (без текста экранов):\n" + string.Join("\n", screen.Structure);
+            (screen.Package == BrowserShortsDetector.Chrome
+                ? ""
+                : "Структура (без текста экранов):\n" + string.Join("\n", screen.Structure));
         GuardState.Preferences(this).Edit()!.PutString("report:" + screen.Package, report)!.Apply();
     }
 
-    private ClipScreen? ReadScreen()
+    private ClipScreen? ReadScreen(string requested)
     {
         using var root = RootInActiveWindow;
         string? package = root?.PackageName?.ToString();
         if (root is null || package is null || !ClipRules.IsSupported(package)) return null;
+        if (package != requested) return new ClipScreen(package, [], false, []);
+        if (package == BrowserShortsDetector.Chrome)
+        {
+            var state = GuardState.EnabledFor(this, package)
+                ? ReadChromeAddress(root) : BrowserShortsState.Unavailable;
+            return new ClipScreen(package, [], false, [], BrowserState: state);
+        }
         using var bounds = new Rect();
         root.GetBoundsInScreen(bounds);
         var scan = new ScreenScan(package, bounds);
         Walk(root, scan, 0, 0, 0);
         return new ClipScreen(package, scan.Ids, scan.SelectedClips, scan.Structure,
             scan.HasFullscreenPager, scan.HasTikTokVideoPlayer);
+    }
+
+    private static BrowserShortsState ReadChromeAddress(AccessibilityNodeInfo root)
+    {
+        var bars = root.FindAccessibilityNodeInfosByViewId(BrowserShortsDetector.ChromeAddressBarId);
+        if (bars is null) return BrowserShortsState.Unavailable;
+
+        int visibleBars = 0;
+        bool editing = false;
+        var state = BrowserShortsState.Unavailable;
+        foreach (var node in bars)
+        {
+            using var bar = node;
+            if (!bar.VisibleToUser) continue;
+            visibleBars++;
+            editing |= bar.Focused;
+            if (visibleBars == 1 && !editing)
+                state = BrowserShortsDetector.ClassifyAddress(bar.Text?.ToString());
+        }
+
+        if (editing) return BrowserShortsState.Editing;
+        return visibleBars == 1 ? state : BrowserShortsState.Unavailable;
     }
 
     private sealed class ScreenScan(string package, Rect bounds)
@@ -184,6 +251,7 @@ public sealed class ShortsService : AccessibilityService
     {
         connected = false;
         IsConnected = false;
+        GuardState.BrowserSubscriptionChanged -= UpdateBrowserSubscription;
         handler.RemoveCallbacksAndMessages(null);
         handler.Dispose();
         base.OnDestroy();

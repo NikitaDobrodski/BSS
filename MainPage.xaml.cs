@@ -23,6 +23,7 @@ public partial class MainPage : ContentPage
         ConfigureSwitch(VkVideoSwitch, ClipRules.VkVideo);
         ConfigureSwitch(InstagramSwitch, ClipRules.Instagram);
         ConfigureSwitch(TikTokSwitch, ClipRules.TikTok);
+        ConfigureSwitch(ChromeShortsSwitch, BrowserShortsDetector.Chrome);
 
         statusTimer = Dispatcher.CreateTimer();
         statusTimer.Interval = TimeSpan.FromSeconds(1);
@@ -143,7 +144,8 @@ public partial class MainPage : ContentPage
     private async void OnAboutClicked(object? sender, EventArgs args) =>
         await DisplayAlertAsync($"BlockShotsStop {AppInfo.Current.VersionString}",
             "Приложение выходит из распознанных коротких лент YouTube, ВКонтакте, VK Видео, Instagram и TikTok. " +
-            "Для работы включите службу специальных возможностей Android и защиту.\n\n" +
+            "Для работы включите службу специальных возможностей Android и защиту. " +
+            "Для YouTube Shorts в Chrome есть отдельный переключатель. Адреса страниц не сохраняются.\n\n" +
             "Служба анализирует структуру экрана и обозначения вкладок. Диагностика хранится на телефоне. " +
             "Переписка, названия роликов, видео и звук не сохраняются. Интернет не используется.", "Закрыть");
 }

@@ -126,4 +126,36 @@ if (new ClipScreen(tikTok, [videoContainer, videoPlayer], false, [], HasFullscre
     throw new Exception("TikTok player outside the fullscreen pager must not block");
 Console.WriteLine("PASS: TikTok package routing");
 Console.WriteLine("PASS: TikTok player outside the fullscreen pager remains open");
+
+var chromeCases = new (string Name, string? Address, BrowserShortsState Expected)[]
+{
+    ("Mobile Shorts link", "https://m.youtube.com/shorts/abcdefghijk", BrowserShortsState.YouTubeShorts),
+    ("Shorts address without scheme", "youtube.com/shorts/abcdefghijk", BrowserShortsState.YouTubeShorts),
+    ("Shorts feed landing page", "https://www.youtube.com/shorts?feature=share", BrowserShortsState.YouTubeShorts),
+    ("Shorts address with a URL in the query", "m.youtube.com/shorts/abcdefghijk?next=https://example.com", BrowserShortsState.YouTubeShorts),
+    ("Regular YouTube video", "https://m.youtube.com/watch?v=abcdefghijk", BrowserShortsState.OtherPage),
+    ("Only the YouTube host is visible", "m.youtube.com", BrowserShortsState.YouTubeWithoutPath),
+    ("YouTube search containing a Shorts link", "https://www.youtube.com/results?search_query=youtube.com%2Fshorts%2F", BrowserShortsState.OtherPage),
+    ("Lookalike YouTube host", "https://youtube.com.example.org/shorts/abcdefghijk", BrowserShortsState.OtherPage),
+    ("Another domain with a Shorts path", "https://example.org/shorts/abcdefghijk", BrowserShortsState.OtherPage),
+    ("User info spoofing the host", "https://youtube.com@example.org/shorts/abcdefghijk", BrowserShortsState.OtherPage),
+    ("URL with embedded user info", "https://example.org@youtube.com/shorts/abcdefghijk", BrowserShortsState.OtherPage),
+    ("Unrelated route prefixed with Shorts", "youtube.com/shortstuff", BrowserShortsState.OtherPage),
+    ("Wrong scheme", "ftp://youtube.com/shorts/abcdefghijk", BrowserShortsState.OtherPage),
+    ("Search input containing spaces", "youtube.com/shorts/abcdefghijk search phrase", BrowserShortsState.OtherPage),
+    ("Hidden address bar", null, BrowserShortsState.Unavailable)
+};
+foreach (var test in chromeCases)
+{
+    var state = BrowserShortsDetector.ClassifyAddress(test.Address);
+    var screen = new ClipScreen(BrowserShortsDetector.Chrome, [], false, [], BrowserState: state);
+    if (state != test.Expected || screen.ShouldBlock != (test.Expected == BrowserShortsState.YouTubeShorts))
+        throw new Exception($"FAILED: {test.Name}");
+    Console.WriteLine($"PASS: {test.Name}");
+}
+if (!ClipRules.IsSupported(BrowserShortsDetector.Chrome) ||
+    new ClipScreen(BrowserShortsDetector.Chrome, [], false, [], BrowserState: BrowserShortsState.Editing).ShouldBlock ||
+    new ClipScreen("com.example.other", [], false, [], BrowserState: BrowserShortsState.YouTubeShorts).ShouldBlock)
+    throw new Exception("Chrome package routing or address editing guard failed");
+Console.WriteLine("PASS: Chrome package routing and address editing guard");
 Console.WriteLine("Rule checks and report replay passed. APK on-device behavior still needs verification.");

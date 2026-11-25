@@ -8,7 +8,8 @@ public partial class DiagnosticsPage : ContentPage
         ("ВКонтакте", ClipRules.Vk),
         ("VK Видео", ClipRules.VkVideo),
         ("Instagram", ClipRules.Instagram),
-        ("TikTok", ClipRules.TikTok)
+        ("TikTok", ClipRules.TikTok),
+        ("Chrome", BrowserShortsDetector.Chrome)
     ];
 
     public DiagnosticsPage()

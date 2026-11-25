@@ -64,6 +64,18 @@
                 </Grid>
             </Border>
 
+            <Label Text="Блокировать в браузере" Margin="0,8,0,0" Style="{StaticResource SectionHeading}" />
+            <Border Padding="16,4"
+                    BackgroundColor="{StaticResource PanelBackground}"
+                    StrokeThickness="0"
+                    StrokeShape="RoundRectangle 14">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Label Text="YouTube Shorts в Chrome" VerticalOptions="Center" />
+                    <Switch x:Name="ChromeShortsSwitch" Grid.Column="1"
+                            SemanticProperties.Description="Блокировать YouTube Shorts в Chrome" />
+                </Grid>
+            </Border>
+
             <Label Text="Проверить блокировку" Margin="0,8,0,0" Style="{StaticResource SectionHeading}" />
             <VerticalStackLayout Spacing="8">
                 <Button Text="Открыть YouTube" Clicked="OnOpenYouTubeClicked" />

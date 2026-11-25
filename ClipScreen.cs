@@ -1,13 +1,15 @@
 namespace ShortsGuard;
 
 public sealed record ClipScreen(string Package, HashSet<string> Ids, bool SelectedClipsTab,
-    IReadOnlyList<string> Structure, bool HasFullscreenVideoPager = false, bool HasTikTokVideoPlayer = false)
+    IReadOnlyList<string> Structure, bool HasFullscreenVideoPager = false, bool HasTikTokVideoPlayer = false,
+    BrowserShortsState BrowserState = BrowserShortsState.Unavailable)
 {
     public bool ShouldBlock => Package switch
     {
         ShortsDetector.YouTubePackage => ShortsDetector.IsShorts(Package, Ids),
         ClipRules.Instagram => HasFullscreenVideoPager,
         ClipRules.TikTok => HasFullscreenVideoPager && HasTikTokVideoPlayer,
+        BrowserShortsDetector.Chrome => BrowserState == BrowserShortsState.YouTubeShorts,
         ClipRules.Vk or ClipRules.VkVideo => SelectedClipsTab || ClipRules.HasFullscreenClipPlayer(Package, Ids),
         _ => false
     };
@@ -25,7 +27,8 @@ public static class ClipRules
     public const string TikTokVideoContainerId = TikTok + ":id/video_container_area";
     public const string TikTokPlayerId = TikTok + ":id/player_view";
     public static bool IsVk(string? package) => package is Vk or VkVideo;
-    public static bool IsSupported(string? package) => package is ShortsDetector.YouTubePackage or Instagram or TikTok || IsVk(package);
+    public static bool IsSupported(string? package) =>
+        package is ShortsDetector.YouTubePackage or Instagram or TikTok or BrowserShortsDetector.Chrome || IsVk(package);
 
     public static bool IsVideoPagerId(string package, string? id, string? parentId = null) => package switch
     {
