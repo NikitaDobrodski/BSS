@@ -39,6 +39,13 @@ internal static class GuardDevice
         return StartActivity(intent);
     }
 
+    internal static bool OpenAppInfo()
+    {
+        using var uri = Android.Net.Uri.FromParts("package", Context.PackageName, null);
+        using var intent = new Intent(Settings.ActionApplicationDetailsSettings, uri);
+        return StartActivity(intent);
+    }
+
     internal static bool OpenApp(string package)
     {
         using var intent = Context.PackageManager!.GetLaunchIntentForPackage(package);

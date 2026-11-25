@@ -7,6 +7,26 @@
              SafeAreaEdges="Container">
     <ScrollView>
         <VerticalStackLayout Padding="20,12,20,24" Spacing="14">
+            <Border x:Name="SetupPanel"
+                    Padding="16"
+                    BackgroundColor="{StaticResource PanelBackground}"
+                    StrokeThickness="0"
+                    StrokeShape="RoundRectangle 14"
+                    IsVisible="False">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Настройте блокировку" Style="{StaticResource SectionHeading}" />
+                    <Label Text="Служба специальных возможностей распознаёт короткие видео по элементам экрана и закрывает их. Диагностика хранится на устройстве." />
+                    <Label Text="В настройках Android выберите BlockShotsStop, включите службу и вернитесь сюда."
+                           TextColor="{StaticResource SecondaryText}" />
+                    <Button Text="Настроить и включить защиту"
+                            BackgroundColor="{StaticResource Accent}"
+                            TextColor="{StaticResource PageBackground}"
+                            Clicked="OnSetupClicked" />
+                    <Button x:Name="RestrictedSettingsHelp"
+                            Text="Android не даёт включить службу?"
+                            Clicked="OnRestrictedSettingsHelpClicked" />
+                </VerticalStackLayout>
+            </Border>
             <Border Padding="16,10"
                     BackgroundColor="{StaticResource PanelBackground}"
                     StrokeThickness="0"
@@ -21,7 +41,9 @@
                     <Label x:Name="ExitCount" Margin="0,4,0,0" TextColor="{StaticResource SecondaryText}" />
                 </VerticalStackLayout>
             </Border>
-            <Button Text="Настроить службу Android" Clicked="OnAccessibilitySettingsClicked" />
+            <Button x:Name="ServiceSettingsButton"
+                    Text="Настроить службу Android"
+                    Clicked="OnAccessibilitySettingsClicked" />
 
             <Label Text="Блокировать короткие видео" Margin="0,8,0,0" Style="{StaticResource SectionHeading}" />
             <Border Padding="16,4"

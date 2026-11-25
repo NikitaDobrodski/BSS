@@ -10,6 +10,7 @@ public partial class MainPage : ContentPage
     public MainPage()
     {
         InitializeComponent();
+        RestrictedSettingsHelp.IsVisible = OperatingSystem.IsAndroidVersionAtLeast(33);
 
         ProtectionSwitch.IsToggled = GuardDevice.ProtectionEnabled;
         ProtectionSwitch.Toggled += (_, args) =>
@@ -67,6 +68,8 @@ public partial class MainPage : ContentPage
     private void UpdateStatus()
     {
         var (configured, connected, exits) = GuardDevice.ReadStatus();
+        SetupPanel.IsVisible = !configured && !connected;
+        ServiceSettingsButton.IsVisible = !SetupPanel.IsVisible;
         ServiceStatus.Text = connected ? "Служба подключена" :
             configured ? "Служба ожидает подключения" : "Служба выключена в Android";
         ProtectionStatus.Text = !ProtectionSwitch.IsToggled ? "Защита выключена" :
@@ -76,10 +79,35 @@ public partial class MainPage : ContentPage
         ExitCount.Text = $"Команд выхода: {exits}";
     }
 
-    private async void OnAccessibilitySettingsClicked(object? sender, EventArgs args)
+    private async void OnSetupClicked(object? sender, EventArgs args)
     {
-        if (!GuardDevice.OpenAccessibilitySettings())
-            await DisplayAlertAsync("Настройки Android", "Откройте специальные возможности в системных настройках.", "Закрыть");
+        if (await OpenAccessibilitySettingsAsync())
+            ProtectionSwitch.IsToggled = true;
+    }
+
+    private async void OnAccessibilitySettingsClicked(object? sender, EventArgs args) =>
+        await OpenAccessibilitySettingsAsync();
+
+    private async Task<bool> OpenAccessibilitySettingsAsync()
+    {
+        if (GuardDevice.OpenAccessibilitySettings())
+            return true;
+
+        await DisplayAlertAsync("Настройки Android",
+            "Откройте специальные возможности в системных настройках и выберите BlockShotsStop.", "Закрыть");
+        return false;
+    }
+
+    private async void OnRestrictedSettingsHelpClicked(object? sender, EventArgs args)
+    {
+        bool openAppInfo = await DisplayAlertAsync("Ограниченные настройки",
+            "Если Android показывает сообщение об ограниченной настройке, откройте сведения о BlockShotsStop. " +
+            "В меню ⋮ выберите «Разрешить ограниченные настройки», если этот пункт доступен и вы доверяете приложению. " +
+            "Затем вернитесь сюда и включите службу.",
+            "Сведения о приложении", "Закрыть");
+        if (openAppInfo && !GuardDevice.OpenAppInfo())
+            await DisplayAlertAsync("Настройки Android",
+                "Откройте «Настройки → Приложения → BlockShotsStop».", "Закрыть");
     }
 
     private async void OnDiagnosticsClicked(object? sender, EventArgs args)
