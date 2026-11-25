@@ -1,9 +1,9 @@
 using Android.AccessibilityServices;
 using Android.App;
 using Android.Content;
-using Android.Graphics;
 using Android.OS;
 using Android.Views.Accessibility;
+using Rect = Android.Graphics.Rect;
 
 namespace ShortsGuard;
 
@@ -18,27 +18,21 @@ public sealed class ShortsService : AccessibilityService
     private bool scanPending;
     private string? pendingPackage;
     private readonly Dictionary<string, long> lastDiagnosticAt = new();
-    private readonly AdSkipGate adSkipGate = new();
     private bool exiting;
     private bool connected;
-    private AdCurtain? curtain;
-    private bool curtainCheckPending;
 
     protected override void OnServiceConnected()
     {
         base.OnServiceConnected();
         connected = true;
         IsConnected = true;
-        curtain = new AdCurtain(this);
     }
 
     public override void OnAccessibilityEvent(AccessibilityEvent? e)
     {
         string? package = e?.PackageName?.ToString();
         if (!connected || exiting || !ClipRules.IsSupported(package) ||
-            !GuardState.ShouldObserve(this, package!)) return;
-        if (package == ClipRules.Vk && e?.EventType == EventTypes.ViewScrolled)
-            adSkipGate.ObserveScroll(SystemClock.ElapsedRealtime());
+            !GuardState.EnabledFor(this, package!)) return;
         pendingPackage = package;
         if (scanPending) return;
         scanPending = true;
@@ -48,7 +42,7 @@ public sealed class ShortsService : AccessibilityService
         {
             scanPending = false;
             string? requested = pendingPackage;
-            if (!connected || exiting || requested is null || !GuardState.ShouldObserve(this, requested)) return;
+            if (!connected || exiting || requested is null || !GuardState.EnabledFor(this, requested)) return;
             GuardState.Preferences(this).Edit()!.PutString("event:" + requested,
                 DateTime.Now.ToString("dd.MM HH:mm:ss"))!.Apply();
             ScanCurrentScreen(requested);
@@ -57,19 +51,13 @@ public sealed class ShortsService : AccessibilityService
 
     private void ScanCurrentScreen(string requested)
     {
-        if (requested != ClipRules.Vk) curtain?.Hide();
         var snapshot = ReadScreen();
         string status = snapshot is null ? "Активное окно недоступно или уже сменилось" :
             snapshot.Package != requested ? "Активно другое поддерживаемое приложение" : "Структура получена";
         GuardState.Preferences(this).Edit()!.PutString("scan:" + requested, status)!.Apply();
-        if (snapshot is null || snapshot.Package != requested || !GuardState.ShouldObserve(this, snapshot.Package)) return;
+        if (snapshot is null || snapshot.Package != requested || !GuardState.EnabledFor(this, snapshot.Package)) return;
         SaveDiagnostics(snapshot);
-        if (snapshot.ShouldBlock) curtain?.Hide();
-        if (!snapshot.ShouldBlock || !GuardState.EnabledFor(this, snapshot.Package))
-        {
-            TrySkipAd(snapshot);
-            return;
-        }
+        if (!snapshot.ShouldBlock) return;
         exiting = true;
         if (PerformGlobalAction(GlobalAction.Back))
         {
@@ -87,67 +75,6 @@ public sealed class ShortsService : AccessibilityService
             }
             exiting = false;
         }, 900);
-    }
-
-    private void TrySkipAd(ClipScreen snapshot)
-    {
-        if (snapshot.Package != ClipRules.Vk || snapshot.ShouldBlock || !GuardState.AdsEnabled(this))
-        { curtain?.Hide(); return; }
-        using var root = RootInActiveWindow;
-        if (root?.PackageName?.ToString() != ClipRules.Vk) { curtain?.Hide(); return; }
-        using var target = AdSkipper.FindTarget(root);
-        if (target is null)
-        {
-            curtain?.Hide();
-            GuardState.Preferences(this).Edit()!.PutString("ad_status", "Карточка с рекламной отметкой и кнопкой не найдена")!.Apply();
-            return;
-        }
-        if (GuardState.BlackoutAds(this))
-        {
-            curtain?.Show(target.Bounds);
-            GuardState.Preferences(this).Edit()!.PutString("ad_status", "Реклама закрыта чёрной плашкой")!.Apply();
-            ScheduleCurtainCheck();
-            return;
-        }
-        curtain?.Hide();
-        if (!adSkipGate.TryAcquire(SystemClock.ElapsedRealtime()))
-        {
-            GuardState.Preferences(this).Edit()!.PutString("ad_status", "Реклама найдена; пауза автоматической прокрутки")!.Apply();
-            return;
-        }
-        bool accepted = target.Scroller.PerformAction(Android.Views.Accessibility.Action.ScrollForward);
-        var prefs = GuardState.Preferences(this);
-        prefs.Edit()!.PutString("ad_status", accepted ? "Команда прокрутки принята" : "VK отклонил команду прокрутки")!
-            .PutInt("ad_scrolls", prefs.GetInt("ad_scrolls", 0) + (accepted ? 1 : 0))!.Apply();
-        if (accepted)
-        {
-            // A tall card can need a second page. The gate prevents more than
-            // two attempts; screen and switches are re-read for every attempt.
-            handler.PostDelayed(() =>
-            {
-                if (connected && !exiting && GuardState.AdsEnabled(this)) ScanCurrentScreen(ClipRules.Vk);
-            }, 900);
-        }
-    }
-
-    private void ScheduleCurtainCheck()
-    {
-        if (curtainCheckPending) return;
-        curtainCheckPending = true;
-        handler.PostDelayed(() =>
-        {
-            curtainCheckPending = false;
-            if (!connected || !GuardState.AdsEnabled(this) || !GuardState.BlackoutAds(this))
-            { curtain?.Hide(); return; }
-            // Check only while a curtain is shown: remove it on app switching,
-            // dismissal, or changed feed layout, even without a VK event.
-            using var root = RootInActiveWindow;
-            if (root?.PackageName?.ToString() != ClipRules.Vk) { curtain?.Hide(); return; }
-            using var target = AdSkipper.FindTarget(root);
-            if (target is null) { curtain?.Hide(); return; }
-            curtain?.Show(target.Bounds);
-            ScheduleCurtainCheck();
-        }, 120);
     }
 
     private void SaveDiagnostics(ClipScreen screen)
@@ -191,10 +118,6 @@ public sealed class ShortsService : AccessibilityService
         string? id = node.ViewIdResourceName;
         bool clipsLabel = ClipRules.IsClipsLabel(node.Text?.ToString()) ||
             ClipRules.IsClipsLabel(node.ContentDescription?.ToString());
-        bool adLabel = AdRules.IsAdLabel(node.Text?.ToString()) || AdRules.IsAdLabel(node.ContentDescription?.ToString());
-        bool adBare = AdRules.IsBareAdLabel(node.Text?.ToString()) || AdRules.IsBareAdLabel(node.ContentDescription?.ToString());
-        bool adAge = AdRules.IsAgeLabel(node.Text?.ToString()) || AdRules.IsAgeLabel(node.ContentDescription?.ToString());
-        bool adCta = AdRules.IsCtaLabel(node.Text?.ToString()) || AdRules.IsCtaLabel(node.ContentDescription?.ToString());
         using var bounds = new Rect();
         node.GetBoundsInScreen(bounds);
         float centerY = (bounds.Top + bounds.Bottom) / 2f;
@@ -207,8 +130,7 @@ public sealed class ShortsService : AccessibilityService
             if (!string.IsNullOrEmpty(id)) ids.Add(id);
             structure.Add($"{depth}: {id ?? "-"} {node.ClassName} " +
                 $"selected={ownSelected} clickable={node.Clickable} edge={nearEdge}" +
-                (clipsLabel ? " label=CLIPS" : "") + (adLabel ? " label=AD_WITH_AGE" : "") +
-                (adBare ? " label=AD" : "") + (adAge ? " label=AGE" : "") + (adCta ? " label=AD_CTA" : ""));
+                (clipsLabel ? " label=CLIPS" : ""));
         }
         for (int i = 0; i < node.ChildCount && visited < 1200; i++)
         {
@@ -218,13 +140,12 @@ public sealed class ShortsService : AccessibilityService
         }
     }
 
-    public override void OnInterrupt() { curtain?.Hide(); }
+    public override void OnInterrupt() { }
     public override void OnDestroy()
     {
         connected = false;
         IsConnected = false;
         handler.RemoveCallbacksAndMessages(null);
-        curtain?.Dispose();
         handler.Dispose();
         base.OnDestroy();
     }

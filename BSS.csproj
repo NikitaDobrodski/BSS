@@ -3,12 +3,17 @@
     <TargetFramework>net10.0-android36.1</TargetFramework>
     <OutputType>Exe</OutputType>
     <RootNamespace>ShortsGuard</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <MauiVersion>10.0.20</MauiVersion>
+    <MauiXamlInflator>SourceGen</MauiXamlInflator>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <SupportedOSPlatformVersion>26.0</SupportedOSPlatformVersion>
     <ApplicationId>org.nikita.shortsguard</ApplicationId>
-    <ApplicationVersion>6</ApplicationVersion>
-    <ApplicationDisplayVersion>0.6</ApplicationDisplayVersion>
+    <ApplicationTitle>BlockShotsStop</ApplicationTitle>
+    <ApplicationVersion>7</ApplicationVersion>
+    <ApplicationDisplayVersion>0.7</ApplicationDisplayVersion>
     <AndroidPackageFormats>apk</AndroidPackageFormats>
     <RuntimeIdentifier>android-arm64</RuntimeIdentifier>
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
@@ -17,6 +22,7 @@
     <AndroidNeedsInternetPermission>false</AndroidNeedsInternetPermission>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
     <Compile Remove="Checks\**" />
   </ItemGroup>
 </Project>

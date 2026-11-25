@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ShortsGuard.App">
+    <Application.Resources>
+        <Color x:Key="PageBackground">#151920</Color>
+        <Color x:Key="PanelBackground">#202730</Color>
+        <Color x:Key="PrimaryText">#F4F6F8</Color>
+        <Color x:Key="SecondaryText">#C2CAD4</Color>
+        <Color x:Key="Accent">#84E0C2</Color>
+        <Style TargetType="Label">
+            <Setter Property="TextColor" Value="{StaticResource PrimaryText}" />
+        </Style>
+        <Style x:Key="SectionHeading" TargetType="Label">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontAttributes" Value="Bold" />
+            <Setter Property="SemanticProperties.HeadingLevel" Value="Level2" />
+        </Style>
+        <Style TargetType="Switch">
+            <Setter Property="OnColor" Value="{StaticResource Accent}" />
+            <Setter Property="MinimumHeightRequest" Value="48" />
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="BackgroundColor" Value="{StaticResource PanelBackground}" />
+            <Setter Property="TextColor" Value="{StaticResource PrimaryText}" />
+            <Setter Property="MinimumHeightRequest" Value="48" />
+        </Style>
+    </Application.Resources>
+</Application>

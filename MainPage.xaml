@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ShortsGuard.MainPage"
+             Title="BlockShotsStop"
+             BackgroundColor="{StaticResource PageBackground}"
+             SafeAreaEdges="Container">
+    <ScrollView>
+        <VerticalStackLayout Padding="20,12,20,24" Spacing="14">
+            <Border Padding="16,10"
+                    BackgroundColor="{StaticResource PanelBackground}"
+                    StrokeThickness="0"
+                    StrokeShape="RoundRectangle 14">
+                <VerticalStackLayout Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label Text="Включить защиту" FontAttributes="Bold" FontSize="18" VerticalOptions="Center" />
+                        <Switch x:Name="ProtectionSwitch" Grid.Column="1" SemanticProperties.Description="Включить защиту" />
+                    </Grid>
+                    <Label x:Name="ProtectionStatus" FontAttributes="Bold" />
+                    <Label x:Name="ServiceStatus" TextColor="{StaticResource SecondaryText}" />
+                    <Label x:Name="ExitCount" Margin="0,4,0,0" TextColor="{StaticResource SecondaryText}" />
+                </VerticalStackLayout>
+            </Border>
+            <Button Text="Настроить службу Android" Clicked="OnAccessibilitySettingsClicked" />
+
+            <Label Text="Блокировать короткие видео" Margin="0,8,0,0" Style="{StaticResource SectionHeading}" />
+            <Border Padding="16,4"
+                    BackgroundColor="{StaticResource PanelBackground}"
+                    StrokeThickness="0"
+                    StrokeShape="RoundRectangle 14">
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12">
+                    <Label Text="YouTube Shorts" VerticalOptions="Center" />
+                    <Switch x:Name="YouTubeSwitch" Grid.Column="1" SemanticProperties.Description="Блокировать YouTube Shorts" />
+                    <Label Grid.Row="1" Text="Клипы ВКонтакте" VerticalOptions="Center" />
+                    <Switch x:Name="VkSwitch" Grid.Row="1" Grid.Column="1" SemanticProperties.Description="Блокировать клипы ВКонтакте" />
+                    <Label Grid.Row="2" Text="Клипы VK Видео" VerticalOptions="Center" />
+                    <Switch x:Name="VkVideoSwitch" Grid.Row="2" Grid.Column="1" SemanticProperties.Description="Блокировать клипы VK Видео" />
+                </Grid>
+            </Border>
+
+            <Label Text="Проверить блокировку" Margin="0,8,0,0" Style="{StaticResource SectionHeading}" />
+            <VerticalStackLayout Spacing="8">
+                <Button Text="Открыть YouTube" Clicked="OnOpenYouTubeClicked" />
+                <Button Text="Открыть ВКонтакте" Clicked="OnOpenVkClicked" />
+                <Button Text="Открыть VK Видео" Clicked="OnOpenVkVideoClicked" />
+            </VerticalStackLayout>
+            <Button Text="Диагностика распознавания" Clicked="OnDiagnosticsClicked" />
+            <Button Text="О приложении и доступе" Clicked="OnAboutClicked" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

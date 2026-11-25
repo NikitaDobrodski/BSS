@@ -8,12 +8,11 @@ internal static class GuardState
         context.GetSharedPreferences("guard", FileCreationMode.Private)!;
     internal static bool Enabled(Context context) => Preferences(context).GetBoolean("enabled", false);
     internal static bool EnabledFor(Context context, string package) =>
-        Enabled(context) && Preferences(context).GetBoolean("app:" + package, true);
-    internal static bool AdsEnabled(Context context) => Enabled(context) &&
-        Preferences(context).GetBoolean("skip_vk_ads", false);
-    internal static bool BlackoutAds(Context context) => Preferences(context).GetBoolean("blackout_ads", true);
-    internal static bool ShouldObserve(Context context, string package) =>
-        EnabledFor(context, package) || (package == ClipRules.Vk && AdsEnabled(context));
+        Enabled(context) && AppEnabled(context, package);
+    internal static bool AppEnabled(Context context, string package) =>
+        Preferences(context).GetBoolean("app:" + package, true);
+    internal static void SetAppEnabled(Context context, string package, bool enabled) =>
+        Preferences(context).Edit()!.PutBoolean("app:" + package, enabled)!.Apply();
     internal static void SetEnabled(Context context, bool enabled) =>
         Preferences(context).Edit()!.PutBoolean("enabled", enabled)!.Apply();
 }
