@@ -22,6 +22,7 @@ public partial class MainPage : ContentPage
         ConfigureSwitch(VkSwitch, ClipRules.Vk);
         ConfigureSwitch(VkVideoSwitch, ClipRules.VkVideo);
         ConfigureSwitch(InstagramSwitch, ClipRules.Instagram);
+        ConfigureSwitch(TikTokSwitch, ClipRules.TikTok);
 
         statusTimer = Dispatcher.CreateTimer();
         statusTimer.Interval = TimeSpan.FromSeconds(1);
@@ -131,6 +132,7 @@ public partial class MainPage : ContentPage
     private void OnOpenVkClicked(object? sender, EventArgs args) => OpenApp(ClipRules.Vk, "ВКонтакте");
     private void OnOpenVkVideoClicked(object? sender, EventArgs args) => OpenApp(ClipRules.VkVideo, "VK Видео");
     private void OnOpenInstagramClicked(object? sender, EventArgs args) => OpenApp(ClipRules.Instagram, "Instagram");
+    private void OnOpenTikTokClicked(object? sender, EventArgs args) => OpenApp(ClipRules.TikTok, "TikTok");
 
     private async void OpenApp(string package, string name)
     {
@@ -140,7 +142,7 @@ public partial class MainPage : ContentPage
 
     private async void OnAboutClicked(object? sender, EventArgs args) =>
         await DisplayAlertAsync($"BlockShotsStop {AppInfo.Current.VersionString}",
-            "Приложение выходит из распознанных коротких лент YouTube, ВКонтакте, VK Видео и Instagram. " +
+            "Приложение выходит из распознанных коротких лент YouTube, ВКонтакте, VK Видео, Instagram и TikTok. " +
             "Для работы включите службу специальных возможностей Android и защиту.\n\n" +
             "Служба анализирует структуру экрана и обозначения вкладок. Диагностика хранится на телефоне. " +
             "Переписка, названия роликов, видео и звук не сохраняются. Интернет не используется.", "Закрыть");

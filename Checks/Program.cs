@@ -82,8 +82,8 @@ var reelsCases = new (string Name, string Id, bool Visible, int Width, int Heigh
 };
 foreach (var test in reelsCases)
 {
-    bool match = ClipRules.IsFullscreenInstagramReelsViewer(test.Id, test.Visible,
-        test.Width, test.Height, test.WindowWidth, 2000);
+    bool match = test.Visible && ClipRules.IsVideoPagerId(instagram, test.Id) &&
+        ClipRules.HasFullscreenCoverage(test.Width, test.Height, test.WindowWidth, 2000);
     var screen = new ClipScreen(instagram, [test.Id], false, [], match);
     if (screen.ShouldBlock != test.Expected)
         throw new Exception($"FAILED: {test.Name}");
@@ -94,4 +94,36 @@ if (!ClipRules.IsSupported(instagram) ||
     new ClipScreen("com.example.other", [viewer], false, [], true).ShouldBlock)
     throw new Exception("Instagram package routing failed");
 Console.WriteLine("PASS: Instagram package routing");
+
+const string tikTok = ClipRules.TikTok;
+const string feedPager = ClipRules.TikTokFeedPagerId;
+const string feedWrapper = ClipRules.TikTokFeedWrapperId;
+const string videoContainer = ClipRules.TikTokVideoContainerId;
+const string videoPlayer = ClipRules.TikTokPlayerId;
+var tikTokCases = new (string Name, string Id, string Parent, bool Visible, int Height, string[] VisibleIds, bool Expected)[]
+{
+    ("TikTok 47.9.3 For You feed", feedPager, feedWrapper, true, 2135, [videoContainer, videoPlayer], true),
+    ("TikTok app-wide pager", feedPager, tikTok + ":id/jqi", true, 2400, [videoContainer, videoPlayer], false),
+    ("TikTok hidden feed pager", feedPager, feedWrapper, false, 2135, [videoContainer, videoPlayer], false),
+    ("TikTok offscreen feed pager", feedPager, feedWrapper, true, 0, [videoContainer, videoPlayer], false),
+    ("TikTok search thumbnail", feedPager, feedWrapper, true, 600, [videoContainer, videoPlayer], false),
+    ("TikTok profile without a video player", feedPager, feedWrapper, true, 2135, [videoContainer], false),
+    ("TikTok inbox without a video container", feedPager, feedWrapper, true, 2135, [videoPlayer], false),
+    ("Foreign pager ID in TikTok", viewer, feedWrapper, true, 2135, [videoContainer, videoPlayer], false)
+};
+foreach (var test in tikTokCases)
+{
+    bool pager = test.Visible && ClipRules.IsVideoPagerId(tikTok, test.Id, test.Parent) &&
+        ClipRules.HasFullscreenCoverage(1080, test.Height, 1080, 2400);
+    var ids = test.VisibleIds.ToHashSet(StringComparer.Ordinal);
+    var screen = new ClipScreen(tikTok, ids, false, [], pager, pager && ClipRules.HasTikTokVideoPlayer(ids));
+    if (screen.ShouldBlock != test.Expected) throw new Exception($"FAILED: {test.Name}");
+    Console.WriteLine($"PASS: {test.Name}");
+}
+if (!ClipRules.IsSupported(tikTok) || ClipRules.IsVideoPagerId(instagram, feedPager, feedWrapper))
+    throw new Exception("TikTok package routing failed");
+if (new ClipScreen(tikTok, [videoContainer, videoPlayer], false, [], HasFullscreenVideoPager: true).ShouldBlock)
+    throw new Exception("TikTok player outside the fullscreen pager must not block");
+Console.WriteLine("PASS: TikTok package routing");
+Console.WriteLine("PASS: TikTok player outside the fullscreen pager remains open");
 Console.WriteLine("Rule checks and report replay passed. APK on-device behavior still needs verification.");

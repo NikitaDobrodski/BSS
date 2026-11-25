@@ -1,12 +1,13 @@
 namespace ShortsGuard;
 
 public sealed record ClipScreen(string Package, HashSet<string> Ids, bool SelectedClipsTab,
-    IReadOnlyList<string> Structure, bool HasInstagramReelsViewer = false)
+    IReadOnlyList<string> Structure, bool HasFullscreenVideoPager = false, bool HasTikTokVideoPlayer = false)
 {
     public bool ShouldBlock => Package switch
     {
         ShortsDetector.YouTubePackage => ShortsDetector.IsShorts(Package, Ids),
-        ClipRules.Instagram => HasInstagramReelsViewer,
+        ClipRules.Instagram => HasFullscreenVideoPager,
+        ClipRules.TikTok => HasFullscreenVideoPager && HasTikTokVideoPlayer,
         ClipRules.Vk or ClipRules.VkVideo => SelectedClipsTab || ClipRules.HasFullscreenClipPlayer(Package, Ids),
         _ => false
     };
@@ -17,15 +18,29 @@ public static class ClipRules
     public const string Vk = "com.vkontakte.android";
     public const string VkVideo = "com.vk.vkvideo";
     public const string Instagram = "com.instagram.android";
+    public const string TikTok = "com.zhiliaoapp.musically";
     public const string InstagramReelsViewerId = Instagram + ":id/clips_viewer_view_pager";
+    public const string TikTokFeedPagerId = TikTok + ":id/viewpager";
+    public const string TikTokFeedWrapperId = TikTok + ":id/view_pager_layout_wrapper";
+    public const string TikTokVideoContainerId = TikTok + ":id/video_container_area";
+    public const string TikTokPlayerId = TikTok + ":id/player_view";
     public static bool IsVk(string? package) => package is Vk or VkVideo;
-    public static bool IsSupported(string? package) => package is ShortsDetector.YouTubePackage or Instagram || IsVk(package);
+    public static bool IsSupported(string? package) => package is ShortsDetector.YouTubePackage or Instagram or TikTok || IsVk(package);
 
-    // Instagram can retain a preloaded Reels pager offscreen while showing a Story.
-    public static bool IsFullscreenInstagramReelsViewer(string? id, bool visible, int visibleWidth,
-        int visibleHeight, int windowWidth, int windowHeight) =>
-        id == InstagramReelsViewerId && visible && visibleWidth > 0 && visibleHeight > 0 &&
-        windowWidth > 0 && windowHeight > 0 &&
+    public static bool IsVideoPagerId(string package, string? id, string? parentId = null) => package switch
+    {
+        Instagram => id == InstagramReelsViewerId,
+        // TikTok 47.9.3 reuses the same pager ID for its application tabs.
+        TikTok => id == TikTokFeedPagerId && parentId == TikTokFeedWrapperId,
+        _ => false
+    };
+
+    public static bool HasTikTokVideoPlayer(ISet<string> ids) =>
+        ids.Contains(TikTokVideoContainerId) && ids.Contains(TikTokPlayerId);
+
+    // A pager can remain in the tree when an app preloads it outside the active screen.
+    public static bool HasFullscreenCoverage(int visibleWidth, int visibleHeight, int windowWidth, int windowHeight) =>
+        visibleWidth > 0 && visibleHeight > 0 && windowWidth > 0 && windowHeight > 0 &&
         (double)visibleWidth * visibleHeight >= 0.6 * windowWidth * windowHeight;
 
     public static bool HasFullscreenClipPlayer(string package, ISet<string> ids)
