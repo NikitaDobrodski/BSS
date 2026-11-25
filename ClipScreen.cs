@@ -1,19 +1,32 @@
 namespace ShortsGuard;
 
 public sealed record ClipScreen(string Package, HashSet<string> Ids, bool SelectedClipsTab,
-    IReadOnlyList<string> Structure)
+    IReadOnlyList<string> Structure, bool HasInstagramReelsViewer = false)
 {
-    public bool ShouldBlock => Package == ShortsDetector.YouTubePackage
-        ? ShortsDetector.IsShorts(Package, Ids)
-        : ClipRules.IsVk(Package) && (SelectedClipsTab || ClipRules.HasFullscreenClipPlayer(Package, Ids));
+    public bool ShouldBlock => Package switch
+    {
+        ShortsDetector.YouTubePackage => ShortsDetector.IsShorts(Package, Ids),
+        ClipRules.Instagram => HasInstagramReelsViewer,
+        ClipRules.Vk or ClipRules.VkVideo => SelectedClipsTab || ClipRules.HasFullscreenClipPlayer(Package, Ids),
+        _ => false
+    };
 }
 
 public static class ClipRules
 {
     public const string Vk = "com.vkontakte.android";
     public const string VkVideo = "com.vk.vkvideo";
+    public const string Instagram = "com.instagram.android";
+    public const string InstagramReelsViewerId = Instagram + ":id/clips_viewer_view_pager";
     public static bool IsVk(string? package) => package is Vk or VkVideo;
-    public static bool IsSupported(string? package) => package == ShortsDetector.YouTubePackage || IsVk(package);
+    public static bool IsSupported(string? package) => package is ShortsDetector.YouTubePackage or Instagram || IsVk(package);
+
+    // Instagram can retain a preloaded Reels pager offscreen while showing a Story.
+    public static bool IsFullscreenInstagramReelsViewer(string? id, bool visible, int visibleWidth,
+        int visibleHeight, int windowWidth, int windowHeight) =>
+        id == InstagramReelsViewerId && visible && visibleWidth > 0 && visibleHeight > 0 &&
+        windowWidth > 0 && windowHeight > 0 &&
+        (double)visibleWidth * visibleHeight >= 0.6 * windowWidth * windowHeight;
 
     public static bool HasFullscreenClipPlayer(string package, ISet<string> ids)
     {

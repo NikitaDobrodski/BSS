@@ -83,9 +83,12 @@ public sealed class ShortsService : AccessibilityService
         if (!screen.ShouldBlock && lastDiagnosticAt.TryGetValue(screen.Package, out long previous) &&
             now - previous < 1000) return;
         lastDiagnosticAt[screen.Package] = now;
+        string playerDetails = screen.Package == ClipRules.Instagram
+            ? $"Найден полноэкранный Reels: {screen.HasInstagramReelsViewer}\n"
+            : $"Выбрана вкладка Клипы: {screen.SelectedClipsTab}\n" +
+              $"Найден полноэкранный клип: {ClipRules.HasFullscreenClipPlayer(screen.Package, screen.Ids)}\n";
         string report = $"BSS\nПакет: {screen.Package}\nВремя: {DateTime.Now:dd.MM HH:mm:ss}\n" +
-            $"Правило совпало: {screen.ShouldBlock}\nВыбрана вкладка Клипы: {screen.SelectedClipsTab}\n" +
-            $"Найден полноэкранный клип: {ClipRules.HasFullscreenClipPlayer(screen.Package, screen.Ids)}\n" +
+            $"Правило совпало: {screen.ShouldBlock}\n" + playerDetails +
             "Структура (без текста экранов):\n" + string.Join("\n", screen.Structure);
         GuardState.Preferences(this).Edit()!.PutString("report:" + screen.Package, report)!.Apply();
     }
@@ -100,13 +103,16 @@ public sealed class ShortsService : AccessibilityService
         using var bounds = new Rect();
         root.GetBoundsInScreen(bounds);
         bool selectedClips = false;
+        bool instagramReels = false;
         int visited = 0;
-        Walk(root, ids, structure, ref selectedClips, ref visited, 0, 0, 0, bounds);
-        return new ClipScreen(package!, ids, selectedClips, structure);
+        Walk(root, ids, structure, ref selectedClips, ref instagramReels, ref visited, 0, 0, 0, bounds,
+            readClipLabels: package != ClipRules.Instagram);
+        return new ClipScreen(package!, ids, selectedClips, structure, instagramReels);
     }
 
     private static void Walk(AccessibilityNodeInfo node, HashSet<string> ids, List<string> structure,
-        ref bool selectedClips, ref int visited, int depth, int selectedSteps, int interactiveSteps, Rect screen)
+        ref bool selectedClips, ref bool instagramReels, ref int visited, int depth, int selectedSteps,
+        int interactiveSteps, Rect screen, bool readClipLabels)
     {
         if (++visited > 1200 || depth > 45) return;
         bool visible = node.VisibleToUser;
@@ -116,10 +122,21 @@ public sealed class ShortsService : AccessibilityService
         selectedSteps = ownSelected ? 3 : Math.Max(0, selectedSteps - 1);
         interactiveSteps = node.Clickable ? 3 : Math.Max(0, interactiveSteps - 1);
         string? id = node.ViewIdResourceName;
-        bool clipsLabel = ClipRules.IsClipsLabel(node.Text?.ToString()) ||
-            ClipRules.IsClipsLabel(node.ContentDescription?.ToString());
+        bool clipsLabel = readClipLabels && (ClipRules.IsClipsLabel(node.Text?.ToString()) ||
+            ClipRules.IsClipsLabel(node.ContentDescription?.ToString()));
         using var bounds = new Rect();
         node.GetBoundsInScreen(bounds);
+        string reelsBounds = "";
+        if (id == ClipRules.InstagramReelsViewerId && visible)
+        {
+            int visibleWidth = Math.Max(0, Math.Min(bounds.Right, screen.Right) - Math.Max(bounds.Left, screen.Left));
+            int visibleHeight = Math.Max(0, Math.Min(bounds.Bottom, screen.Bottom) - Math.Max(bounds.Top, screen.Top));
+            int windowWidth = screen.Width();
+            int windowHeight = screen.Height();
+            instagramReels |= ClipRules.IsFullscreenInstagramReelsViewer(id, visible, visibleWidth, visibleHeight,
+                windowWidth, windowHeight);
+            reelsBounds = $" visibleBounds={visibleWidth}x{visibleHeight} windowBounds={windowWidth}x{windowHeight}";
+        }
         float centerY = (bounds.Top + bounds.Bottom) / 2f;
         bool nearEdge = screen.Height() > 0 &&
             (centerY <= screen.Top + screen.Height() * 0.25f || centerY >= screen.Top + screen.Height() * 0.75f);
@@ -130,13 +147,13 @@ public sealed class ShortsService : AccessibilityService
             if (!string.IsNullOrEmpty(id)) ids.Add(id);
             structure.Add($"{depth}: {id ?? "-"} {node.ClassName} " +
                 $"selected={ownSelected} clickable={node.Clickable} edge={nearEdge}" +
-                (clipsLabel ? " label=CLIPS" : ""));
+                (clipsLabel ? " label=CLIPS" : "") + reelsBounds);
         }
         for (int i = 0; i < node.ChildCount && visited < 1200; i++)
         {
             using var child = node.GetChild(i);
-            if (child is not null) Walk(child, ids, structure, ref selectedClips, ref visited,
-                depth + 1, selectedSteps, interactiveSteps, screen);
+            if (child is not null) Walk(child, ids, structure, ref selectedClips, ref instagramReels, ref visited,
+                depth + 1, selectedSteps, interactiveSteps, screen, readClipLabels);
         }
     }
 

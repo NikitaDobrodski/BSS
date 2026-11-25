@@ -50,13 +50,15 @@
                     BackgroundColor="{StaticResource PanelBackground}"
                     StrokeThickness="0"
                     StrokeShape="RoundRectangle 14">
-                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12">
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12">
                     <Label Text="YouTube Shorts" VerticalOptions="Center" />
                     <Switch x:Name="YouTubeSwitch" Grid.Column="1" SemanticProperties.Description="Блокировать YouTube Shorts" />
                     <Label Grid.Row="1" Text="Клипы ВКонтакте" VerticalOptions="Center" />
                     <Switch x:Name="VkSwitch" Grid.Row="1" Grid.Column="1" SemanticProperties.Description="Блокировать клипы ВКонтакте" />
                     <Label Grid.Row="2" Text="Клипы VK Видео" VerticalOptions="Center" />
                     <Switch x:Name="VkVideoSwitch" Grid.Row="2" Grid.Column="1" SemanticProperties.Description="Блокировать клипы VK Видео" />
+                    <Label Grid.Row="3" Text="Instagram Reels" VerticalOptions="Center" />
+                    <Switch x:Name="InstagramSwitch" Grid.Row="3" Grid.Column="1" SemanticProperties.Description="Блокировать Instagram Reels" />
                 </Grid>
             </Border>
 
@@ -65,6 +67,7 @@
                 <Button Text="Открыть YouTube" Clicked="OnOpenYouTubeClicked" />
                 <Button Text="Открыть ВКонтакте" Clicked="OnOpenVkClicked" />
                 <Button Text="Открыть VK Видео" Clicked="OnOpenVkVideoClicked" />
+                <Button Text="Открыть Instagram" Clicked="OnOpenInstagramClicked" />
             </VerticalStackLayout>
             <Button Text="Диагностика распознавания" Clicked="OnDiagnosticsClicked" />
             <Button Text="О приложении и доступе" Clicked="OnAboutClicked" />

@@ -65,4 +65,33 @@ var noTimeline = actualVkIds.Where(id => id != $"{ClipRules.Vk}:id/clip_seekbar"
 if (new ClipScreen(ClipRules.Vk, noTimeline, false, []).ShouldBlock) throw new Exception("Missing clip timeline/header must not block");
 if (new ClipScreen(ClipRules.VkVideo, actualVkIds, false, []).ShouldBlock) throw new Exception("Do not match IDs from another package");
 Console.WriteLine("PASS: 5 incomplete/cross-package player checks");
+
+const string instagram = ClipRules.Instagram;
+const string viewer = ClipRules.InstagramReelsViewerId;
+var reelsCases = new (string Name, string Id, bool Visible, int Width, int Height, int WindowWidth, bool Expected)[]
+{
+    ("Fullscreen Reels player", viewer, true, 1080, 2000, 1080, true),
+    ("Hidden Reels player", viewer, false, 1080, 2000, 1080, false),
+    ("Offscreen preloaded Reels player", viewer, true, 0, 2000, 1080, false),
+    ("Reels preview in feed", viewer, true, 1080, 800, 1080, false),
+    ("Fullscreen Story", instagram + ":id/reel_viewer", true, 1080, 2000, 1080, false),
+    ("Reels navigation button", instagram + ":id/clips_tab", true, 1080, 2000, 1080, false),
+    ("DM message list", instagram + ":id/direct_thread", true, 1080, 2000, 1080, false),
+    ("Viewer ID from another package", "com.example.other:id/clips_viewer_view_pager", true, 1080, 2000, 1080, false),
+    ("Missing active window bounds", viewer, true, 1080, 2000, 0, false)
+};
+foreach (var test in reelsCases)
+{
+    bool match = ClipRules.IsFullscreenInstagramReelsViewer(test.Id, test.Visible,
+        test.Width, test.Height, test.WindowWidth, 2000);
+    var screen = new ClipScreen(instagram, [test.Id], false, [], match);
+    if (screen.ShouldBlock != test.Expected)
+        throw new Exception($"FAILED: {test.Name}");
+    Console.WriteLine($"PASS: {test.Name}");
+}
+if (!ClipRules.IsSupported(instagram) ||
+    new ClipScreen(instagram, [viewer], true, []).ShouldBlock ||
+    new ClipScreen("com.example.other", [viewer], false, [], true).ShouldBlock)
+    throw new Exception("Instagram package routing failed");
+Console.WriteLine("PASS: Instagram package routing");
 Console.WriteLine("Rule checks and report replay passed. APK on-device behavior still needs verification.");

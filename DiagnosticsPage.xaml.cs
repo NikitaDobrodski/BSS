@@ -6,7 +6,8 @@ public partial class DiagnosticsPage : ContentPage
     [
         ("YouTube", ShortsDetector.YouTubePackage),
         ("ВКонтакте", ClipRules.Vk),
-        ("VK Видео", ClipRules.VkVideo)
+        ("VK Видео", ClipRules.VkVideo),
+        ("Instagram", ClipRules.Instagram)
     ];
 
     public DiagnosticsPage()
