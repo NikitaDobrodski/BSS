@@ -26,7 +26,7 @@
 
 - `MainPage.xaml` и `DiagnosticsPage.xaml` описывают экраны MAUI.
 - `Platforms/Android` содержит службу специальных возможностей, манифест и доступ к настройкам Android.
-- `ShortsDetector.cs`, `ClipScreen.cs` и `BrowserShortsDetector.cs` содержат правила распознавания. Их проверяет консольный проект `Checks`.
+- `AndroidScreenReader.cs` читает активное окно. `ScreenRecognizer.cs` распознаёт экран по снимку дерева без зависимости от Android. Консольный проект `Checks` проверяет правила и воспроизводит тестовые деревья.
 
 ## Сборка и проверки
 

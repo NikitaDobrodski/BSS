@@ -82,9 +82,9 @@ var reelsCases = new (string Name, string Id, bool Visible, int Width, int Heigh
 };
 foreach (var test in reelsCases)
 {
-    bool match = test.Visible && ClipRules.IsVideoPagerId(instagram, test.Id) &&
-        ClipRules.HasFullscreenCoverage(test.Width, test.Height, test.WindowWidth, 2000);
-    var screen = new ClipScreen(instagram, [test.Id], false, [], match);
+    var pager = Node(test.Id, new(0, 0, test.Width, test.Height)) with { Visible = test.Visible };
+    var root = Node(null, new(0, 0, test.WindowWidth, 2000), pager);
+    var screen = ScreenRecognizer.Recognize(instagram, root);
     if (screen.ShouldBlock != test.Expected)
         throw new Exception($"FAILED: {test.Name}");
     Console.WriteLine($"PASS: {test.Name}");
@@ -113,19 +113,37 @@ var tikTokCases = new (string Name, string Id, string Parent, bool Visible, int 
 };
 foreach (var test in tikTokCases)
 {
-    bool pager = test.Visible && ClipRules.IsVideoPagerId(tikTok, test.Id, test.Parent) &&
-        ClipRules.HasFullscreenCoverage(1080, test.Height, 1080, 2400);
-    var ids = test.VisibleIds.ToHashSet(StringComparer.Ordinal);
-    var screen = new ClipScreen(tikTok, ids, false, [], pager, pager && ClipRules.HasTikTokVideoPlayer(ids));
+    var pagerBounds = new ScreenBounds(0, 0, 1080, test.Height);
+    var playerNodes = test.VisibleIds.Select(id => Node(id, pagerBounds)).ToArray();
+    var pager = Node(test.Id, pagerBounds, playerNodes) with { Visible = test.Visible };
+    var wrapper = Node(test.Parent, pagerBounds, pager);
+    var screen = ScreenRecognizer.Recognize(tikTok, Node(null, new(0, 0, 1080, 2400), wrapper));
     if (screen.ShouldBlock != test.Expected) throw new Exception($"FAILED: {test.Name}");
     Console.WriteLine($"PASS: {test.Name}");
 }
 if (!ClipRules.IsSupported(tikTok) || ClipRules.IsVideoPagerId(instagram, feedPager, feedWrapper))
     throw new Exception("TikTok package routing failed");
-if (new ClipScreen(tikTok, [videoContainer, videoPlayer], false, [], HasFullscreenVideoPager: true).ShouldBlock)
+var window = new ScreenBounds(0, 0, 1080, 2400);
+var feedBounds = new ScreenBounds(0, 0, 1080, 2135);
+var player = Node(videoContainer, feedBounds, Node(videoPlayer, feedBounds));
+var emptyFeed = Node(feedWrapper, feedBounds, Node(feedPager, feedBounds));
+var siblingPlayer = ScreenRecognizer.Recognize(tikTok, Node(null, window, emptyFeed, player));
+if (!siblingPlayer.HasFullscreenVideoPager || !siblingPlayer.Ids.Contains(videoPlayer) || siblingPlayer.ShouldBlock)
     throw new Exception("TikTok player outside the fullscreen pager must not block");
+var insideFeed = Node(feedWrapper, feedBounds, Node(feedPager, feedBounds, player));
+if (!ScreenRecognizer.Recognize(tikTok, Node(null, window, insideFeed)).ShouldBlock)
+    throw new Exception("TikTok player nested inside the fullscreen pager must block");
 Console.WriteLine("PASS: TikTok package routing");
 Console.WriteLine("PASS: TikTok player outside the fullscreen pager remains open");
+Console.WriteLine("PASS: TikTok nested player blocks");
+
+var tabBounds = new ScreenBounds(0, 2160, 320, 2400);
+var tabLabel = Node(null, tabBounds) with { ClipsLabel = true };
+var tab = Node(null, tabBounds, Node(null, tabBounds, tabLabel)) with { Selected = true, Clickable = true };
+var vkTabScreen = ScreenRecognizer.Recognize(ClipRules.Vk, Node(null, window, tab));
+if (!vkTabScreen.ShouldBlock || !vkTabScreen.Structure.Any(line => line.EndsWith("label=CLIPS", StringComparison.Ordinal)))
+    throw new Exception("VK Clips label must inherit selected and interactive states from its navigation tab");
+Console.WriteLine("PASS: VK selected tab recognition from its accessibility tree");
 
 var chromeCases = new (string Name, string? Address, BrowserShortsState Expected)[]
 {
@@ -159,3 +177,7 @@ if (!ClipRules.IsSupported(BrowserShortsDetector.Chrome) ||
     throw new Exception("Chrome package routing or address editing guard failed");
 Console.WriteLine("PASS: Chrome package routing and address editing guard");
 Console.WriteLine("Rule checks and report replay passed. APK on-device behavior still needs verification.");
+
+static ScreenNode Node(string? id, ScreenBounds bounds, params ScreenNode[] children) =>
+    new(id, "android.view.View", bounds, Visible: true, Selected: false, Clickable: false, Editable: false,
+        ClipsLabel: false, Children: children);

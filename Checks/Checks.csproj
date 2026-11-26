@@ -4,6 +4,7 @@
     <Compile Include="..\ShortsDetector.cs" Link="ShortsDetector.cs" />
     <Compile Include="..\ClipScreen.cs" Link="ClipScreen.cs" />
     <Compile Include="..\BrowserShortsDetector.cs" Link="BrowserShortsDetector.cs" />
+    <Compile Include="..\ScreenRecognizer.cs" Link="ScreenRecognizer.cs" />
   </ItemGroup>
   <ItemGroup><None Include="Fixtures\*.txt" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

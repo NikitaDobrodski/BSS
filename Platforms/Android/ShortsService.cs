@@ -3,7 +3,6 @@ using Android.App;
 using Android.Content;
 using Android.OS;
 using Android.Views.Accessibility;
-using Rect = Android.Graphics.Rect;
 
 namespace ShortsGuard;
 
@@ -138,112 +137,8 @@ public sealed class ShortsService : AccessibilityService
     private ClipScreen? ReadScreen(string requested)
     {
         using var root = RootInActiveWindow;
-        string? package = root?.PackageName?.ToString();
-        if (root is null || package is null || !ClipRules.IsSupported(package)) return null;
-        if (package != requested) return new ClipScreen(package, [], false, []);
-        if (package == BrowserShortsDetector.Chrome)
-        {
-            var state = GuardState.EnabledFor(this, package)
-                ? ReadChromeAddress(root) : BrowserShortsState.Unavailable;
-            return new ClipScreen(package, [], false, [], BrowserState: state);
-        }
-        using var bounds = new Rect();
-        root.GetBoundsInScreen(bounds);
-        var scan = new ScreenScan(package, bounds);
-        Walk(root, scan, 0, 0, 0);
-        return new ClipScreen(package, scan.Ids, scan.SelectedClips, scan.Structure,
-            scan.HasFullscreenPager, scan.HasTikTokVideoPlayer);
-    }
-
-    private static BrowserShortsState ReadChromeAddress(AccessibilityNodeInfo root)
-    {
-        var bars = root.FindAccessibilityNodeInfosByViewId(BrowserShortsDetector.ChromeAddressBarId);
-        if (bars is null) return BrowserShortsState.Unavailable;
-
-        int visibleBars = 0;
-        bool editing = false;
-        var state = BrowserShortsState.Unavailable;
-        foreach (var node in bars)
-        {
-            using var bar = node;
-            if (!bar.VisibleToUser) continue;
-            visibleBars++;
-            editing |= bar.Focused;
-            if (visibleBars == 1 && !editing)
-                state = BrowserShortsDetector.ClassifyAddress(bar.Text?.ToString());
-        }
-
-        if (editing) return BrowserShortsState.Editing;
-        return visibleBars == 1 ? state : BrowserShortsState.Unavailable;
-    }
-
-    private sealed class ScreenScan(string package, Rect bounds)
-    {
-        internal string Package { get; } = package;
-        internal Rect Bounds { get; } = bounds;
-        internal HashSet<string> Ids { get; } = new(StringComparer.Ordinal);
-        internal List<string> Structure { get; } = [];
-        internal int Visited { get; set; }
-        internal bool SelectedClips { get; set; }
-        internal bool HasFullscreenPager { get; set; }
-        internal bool HasTikTokVideoPlayer { get; set; }
-    }
-
-    private static void Walk(AccessibilityNodeInfo node, ScreenScan scan, int depth, int selectedSteps,
-        int interactiveSteps, string? parentId = null, HashSet<string>? tikTokPagerIds = null)
-    {
-        if (++scan.Visited > 1200 || depth > 45) return;
-        bool visible = node.VisibleToUser;
-        bool isChecked = node.Checkable && (OperatingSystem.IsAndroidVersionAtLeast(36)
-            ? node.CheckedState == CheckedState.True : node.Checked);
-        bool ownSelected = node.Selected || isChecked;
-        selectedSteps = ownSelected ? 3 : Math.Max(0, selectedSteps - 1);
-        interactiveSteps = node.Clickable ? 3 : Math.Max(0, interactiveSteps - 1);
-        string? id = node.ViewIdResourceName;
-        bool clipsLabel = scan.Package is not (ClipRules.Instagram or ClipRules.TikTok) &&
-            (ClipRules.IsClipsLabel(node.Text?.ToString()) || ClipRules.IsClipsLabel(node.ContentDescription?.ToString()));
-        using var bounds = new Rect();
-        node.GetBoundsInScreen(bounds);
-        var screen = scan.Bounds;
-        string pagerBounds = "";
-        HashSet<string>? matchedTikTokPagerIds = null;
-        if (visible && ClipRules.IsVideoPagerId(scan.Package, id, parentId))
-        {
-            int visibleWidth = Math.Max(0, Math.Min(bounds.Right, screen.Right) - Math.Max(bounds.Left, screen.Left));
-            int visibleHeight = Math.Max(0, Math.Min(bounds.Bottom, screen.Bottom) - Math.Max(bounds.Top, screen.Top));
-            int windowWidth = screen.Width();
-            int windowHeight = screen.Height();
-            bool fullscreen = ClipRules.HasFullscreenCoverage(visibleWidth, visibleHeight, windowWidth, windowHeight);
-            scan.HasFullscreenPager |= fullscreen;
-            if (fullscreen && scan.Package == ClipRules.TikTok)
-                matchedTikTokPagerIds = new(StringComparer.Ordinal);
-            pagerBounds = $" visibleBounds={visibleWidth}x{visibleHeight} windowBounds={windowWidth}x{windowHeight}";
-        }
-        tikTokPagerIds = matchedTikTokPagerIds ?? tikTokPagerIds;
-        float centerY = (bounds.Top + bounds.Bottom) / 2f;
-        bool nearEdge = screen.Height() > 0 &&
-            (centerY <= screen.Top + screen.Height() * 0.25f || centerY >= screen.Top + screen.Height() * 0.75f);
-        if (ClipRules.IsSelectedClipsTab(clipsLabel ? "Клипы" : null, selectedSteps > 0,
-            interactiveSteps > 0, visible, node.Editable, nearEdge)) scan.SelectedClips = true;
-        if (visible)
-        {
-            if (!string.IsNullOrEmpty(id))
-            {
-                scan.Ids.Add(id);
-                tikTokPagerIds?.Add(id);
-            }
-            scan.Structure.Add($"{depth}: {id ?? "-"} {node.ClassName} " +
-                $"selected={ownSelected} clickable={node.Clickable} edge={nearEdge}" +
-                (clipsLabel ? " label=CLIPS" : "") + pagerBounds);
-        }
-        for (int i = 0; i < node.ChildCount && scan.Visited < 1200; i++)
-        {
-            using var child = node.GetChild(i);
-            if (child is not null)
-                Walk(child, scan, depth + 1, selectedSteps, interactiveSteps, id, tikTokPagerIds);
-        }
-        if (matchedTikTokPagerIds is not null)
-            scan.HasTikTokVideoPlayer |= ClipRules.HasTikTokVideoPlayer(matchedTikTokPagerIds);
+        bool readChromeAddress = requested == BrowserShortsDetector.Chrome && GuardState.EnabledFor(this, requested);
+        return AndroidScreenReader.Read(root, requested, readChromeAddress);
     }
 
     public override void OnInterrupt() { }
