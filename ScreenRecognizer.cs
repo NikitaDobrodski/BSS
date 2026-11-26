@@ -39,7 +39,7 @@ internal static class ScreenRecognizer
         var screen = scan.Bounds;
         string pagerBounds = "";
         HashSet<string>? matchedTikTokPagerIds = null;
-        if (node.Visible && ClipRules.IsVideoPagerId(scan.Package, node.Id, parentId))
+        if (node.Visible && ClipRules.IsVideoPagerId(scan.Package, node.Id, parentId, node.ClassName))
         {
             int visibleWidth = Math.Max(0, Math.Min(bounds.Right, screen.Right) - Math.Max(bounds.Left, screen.Left));
             int visibleHeight = Math.Max(0, Math.Min(bounds.Bottom, screen.Bottom) - Math.Max(bounds.Top, screen.Top));
@@ -71,6 +71,10 @@ internal static class ScreenRecognizer
         foreach (var child in node.Children)
             Visit(child, scan, depth + 1, selectedSteps, interactiveSteps, node.Id, tikTokPagerIds);
         if (matchedTikTokPagerIds is not null)
-            scan.HasTikTokVideoPlayer |= ClipRules.HasTikTokVideoPlayer(matchedTikTokPagerIds);
+        {
+            scan.HasTikTokVideoPlayer |= ClipRules.HasTikTokVideoPlayer(matchedTikTokPagerIds) ||
+                (parentId == ClipRules.TikTokFilteredFeedParentId &&
+                    ClipRules.HasTikTokFilteredPlayer(matchedTikTokPagerIds));
+        }
     }
 }

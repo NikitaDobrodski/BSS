@@ -12,8 +12,8 @@
     <SupportedOSPlatformVersion>26.0</SupportedOSPlatformVersion>
     <ApplicationId>org.nikita.shortsguard</ApplicationId>
     <ApplicationTitle>BlockShotsStop</ApplicationTitle>
-    <ApplicationVersion>11</ApplicationVersion>
-    <ApplicationDisplayVersion>0.11</ApplicationDisplayVersion>
+    <ApplicationVersion>13</ApplicationVersion>
+    <ApplicationDisplayVersion>0.13</ApplicationDisplayVersion>
     <AndroidPackageFormats>apk</AndroidPackageFormats>
     <RuntimeIdentifier>android-arm64</RuntimeIdentifier>
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>

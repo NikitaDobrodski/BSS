@@ -9,14 +9,14 @@ internal static class AndroidScreenReader
     private const int MaxDepth = 45;
 
     // The caller owns the active root. This adapter releases any children it obtains.
-    internal static ClipScreen? Read(AccessibilityNodeInfo? root, string requested, bool readChromeAddress)
+    internal static ClipScreen? Read(AccessibilityNodeInfo? root, string requested, bool readBrowserAddress)
     {
         string? package = root?.PackageName?.ToString();
         if (root is null || package is null || !ClipRules.IsSupported(package)) return null;
         if (package != requested) return new ClipScreen(package, [], false, []);
-        if (package == BrowserShortsDetector.Chrome)
+        if (BrowserShortsDetector.IsSupported(package))
         {
-            var state = readChromeAddress ? ReadChromeAddress(root) : BrowserShortsState.Unavailable;
+            var state = readBrowserAddress ? ReadBrowserAddress(root, package) : BrowserShortsState.Unavailable;
             return new ClipScreen(package, [], false, [], BrowserState: state);
         }
 
@@ -26,9 +26,12 @@ internal static class AndroidScreenReader
         return ScreenRecognizer.Recognize(package, snapshot!);
     }
 
-    private static BrowserShortsState ReadChromeAddress(AccessibilityNodeInfo root)
+    private static BrowserShortsState ReadBrowserAddress(AccessibilityNodeInfo root, string package)
     {
-        var bars = root.FindAccessibilityNodeInfosByViewId(BrowserShortsDetector.ChromeAddressBarId);
+        bool yandex = package == BrowserShortsDetector.Yandex;
+        if (yandex && IsEditingYandexAddress(root, package)) return BrowserShortsState.Editing;
+        string addressId = yandex ? ":id/bro_omnibar_address_title_view" : ":id/url_bar";
+        var bars = root.FindAccessibilityNodeInfosByViewId(package + addressId);
         if (bars is null) return BrowserShortsState.Unavailable;
 
         int visibleBars = 0;
@@ -41,11 +44,26 @@ internal static class AndroidScreenReader
             visibleBars++;
             editing |= bar.Focused;
             if (visibleBars == 1 && !editing)
-                state = BrowserShortsDetector.ClassifyAddress(bar.Text?.ToString());
+                state = yandex
+                    ? BrowserShortsDetector.ClassifyYandexAddress(bar.ContentDescription?.ToString() ?? bar.Text?.ToString())
+                    : BrowserShortsDetector.ClassifyAddress(bar.Text?.ToString());
         }
 
         if (editing) return BrowserShortsState.Editing;
         return visibleBars == 1 ? state : BrowserShortsState.Unavailable;
+    }
+
+    private static bool IsEditingYandexAddress(AccessibilityNodeInfo root, string package)
+    {
+        var fields = root.FindAccessibilityNodeInfosByViewId(package + ":id/suggest_omnibox_query_edit");
+        if (fields is null) return false;
+        bool editing = false;
+        foreach (var field in fields)
+        {
+            using var node = field;
+            editing |= node.VisibleToUser && node.Focused;
+        }
+        return editing;
     }
 
     private static ScreenNode? Capture(AccessibilityNodeInfo node, bool readClipsLabels, int depth, ref int visited)

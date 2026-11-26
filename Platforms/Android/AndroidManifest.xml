@@ -7,6 +7,7 @@
     <package android:name="com.instagram.android" />
     <package android:name="com.zhiliaoapp.musically" />
     <package android:name="com.android.chrome" />
+    <package android:name="com.yandex.browser" />
   </queries>
   <application android:label="BlockShotsStop" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:allowBackup="false" android:supportsRtl="true" />
 </manifest>

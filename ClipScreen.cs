@@ -9,7 +9,7 @@ public sealed record ClipScreen(string Package, HashSet<string> Ids, bool Select
         ShortsDetector.YouTubePackage => ShortsDetector.IsShorts(Package, Ids),
         ClipRules.Instagram => HasFullscreenVideoPager,
         ClipRules.TikTok => HasFullscreenVideoPager && HasTikTokVideoPlayer,
-        BrowserShortsDetector.Chrome => BrowserState == BrowserShortsState.YouTubeShorts,
+        BrowserShortsDetector.Chrome or BrowserShortsDetector.Yandex => BrowserShortsDetector.ShouldBlock(BrowserState),
         ClipRules.Vk or ClipRules.VkVideo => SelectedClipsTab || ClipRules.HasFullscreenClipPlayer(Package, Ids),
         _ => false
     };
@@ -24,22 +24,29 @@ public static class ClipRules
     public const string InstagramReelsViewerId = Instagram + ":id/clips_viewer_view_pager";
     public const string TikTokFeedPagerId = TikTok + ":id/viewpager";
     public const string TikTokFeedWrapperId = TikTok + ":id/view_pager_layout_wrapper";
+    internal const string TikTokFilteredFeedParentId = TikTok + ":id/ii2";
     public const string TikTokVideoContainerId = TikTok + ":id/video_container_area";
     public const string TikTokPlayerId = TikTok + ":id/player_view";
     public static bool IsVk(string? package) => package is Vk or VkVideo;
     public static bool IsSupported(string? package) =>
-        package is ShortsDetector.YouTubePackage or Instagram or TikTok or BrowserShortsDetector.Chrome || IsVk(package);
+        package is ShortsDetector.YouTubePackage or Instagram or TikTok || IsVk(package) ||
+        BrowserShortsDetector.IsSupported(package);
 
-    public static bool IsVideoPagerId(string package, string? id, string? parentId = null) => package switch
+    public static bool IsVideoPagerId(string package, string? id, string? parentId = null,
+        string? className = null) => package switch
     {
         Instagram => id == InstagramReelsViewerId,
-        // TikTok 47.9.3 reuses the same pager ID for its application tabs.
-        TikTok => id == TikTokFeedPagerId && parentId == TikTokFeedWrapperId,
+        // В TikTok 47.9.3 служба может получить пейджер ленты без промежуточной обёртки.
+        TikTok => id == TikTokFeedPagerId && (parentId == TikTokFeedWrapperId ||
+            (parentId == TikTokFilteredFeedParentId && className == "androidx.viewpager.widget.ViewPager")),
         _ => false
     };
 
     public static bool HasTikTokVideoPlayer(ISet<string> ids) =>
         ids.Contains(TikTokVideoContainerId) && ids.Contains(TikTokPlayerId);
+
+    internal static bool HasTikTokFilteredPlayer(ISet<string> ids) =>
+        ids.Contains(TikTok + ":id/long_press_layout") && ids.Contains(TikTok + ":id/user_avatar");
 
     // A pager can remain in the tree when an app preloads it outside the active screen.
     public static bool HasFullscreenCoverage(int visibleWidth, int visibleHeight, int windowWidth, int windowHeight) =>

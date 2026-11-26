@@ -35,11 +35,11 @@ public sealed class ShortsService : AccessibilityService
     {
         using var info = ServiceInfo;
         if (info?.PackageNames is not { Count: > 0 } packages) return;
-        bool includeChrome = GuardState.EnabledFor(this, BrowserShortsDetector.Chrome);
-        if (includeChrome == packages.Contains(BrowserShortsDetector.Chrome)) return;
-        info.PackageNames = includeChrome
-            ? [.. packages, BrowserShortsDetector.Chrome]
-            : packages.Where(package => package != BrowserShortsDetector.Chrome).ToArray();
+        var updated = packages.Where(package => !BrowserShortsDetector.IsSupported(package)).ToList();
+        if (GuardState.EnabledFor(this, BrowserShortsDetector.Chrome)) updated.Add(BrowserShortsDetector.Chrome);
+        if (GuardState.EnabledFor(this, BrowserShortsDetector.Yandex)) updated.Add(BrowserShortsDetector.Yandex);
+        if (packages.SequenceEqual(updated)) return;
+        info.PackageNames = updated.ToArray();
         SetServiceInfo(info);
     }
 
@@ -65,7 +65,7 @@ public sealed class ShortsService : AccessibilityService
     }
 
     private bool IsExitPending(string? package) =>
-        package == BrowserShortsDetector.Chrome ? browserBackPending : exiting;
+        BrowserShortsDetector.IsSupported(package) ? browserBackPending : exiting;
 
     private void ScanCurrentScreen(string requested)
     {
@@ -76,7 +76,7 @@ public sealed class ShortsService : AccessibilityService
         if (snapshot is null || snapshot.Package != requested || !GuardState.EnabledFor(this, snapshot.Package)) return;
         SaveDiagnostics(snapshot);
         if (!snapshot.ShouldBlock) return;
-        bool browser = snapshot.Package == BrowserShortsDetector.Chrome;
+        bool browser = BrowserShortsDetector.IsSupported(snapshot.Package);
         if (browser)
             browserBackPending = true;
         else
@@ -112,23 +112,27 @@ public sealed class ShortsService : AccessibilityService
         lastDiagnosticAt[screen.Package] = now;
         string playerDetails = screen.Package switch
         {
-            BrowserShortsDetector.Chrome => screen.BrowserState switch
+            BrowserShortsDetector.Chrome or BrowserShortsDetector.Yandex => screen.BrowserState switch
             {
-                BrowserShortsState.YouTubeShorts => "Правило: YouTube Shorts в Chrome\n",
+                BrowserShortsState.YouTubeShorts => "Правило: YouTube Shorts\n",
+                BrowserShortsState.VkClips => "Правило: клипы ВКонтакте\n",
+                BrowserShortsState.VkVideoClips => "Правило: клипы VK Видео\n",
+                BrowserShortsState.RutubeShorts => "Правило: RUTUBE Shorts\n",
+                BrowserShortsState.TikTokFeed => "Правило: видеолента TikTok\n",
                 BrowserShortsState.Editing => "Адресная строка в режиме ввода\n",
-                BrowserShortsState.YouTubeWithoutPath => "Chrome передал домен YouTube без пути\n",
-                BrowserShortsState.OtherPage => "Адрес не совпал с правилом Shorts\n",
+                BrowserShortsState.SiteWithoutPath => "Браузер передал домен без пути\n",
+                BrowserShortsState.OtherPage => "Адрес не совпал с правилами коротких видео\n",
                 _ => "Адресная строка недоступна\n"
             },
             ClipRules.Instagram => $"Найден полноэкранный Reels: {screen.HasFullscreenVideoPager}\n",
             ClipRules.TikTok => $"Найден полноэкранный пейджер TikTok: {screen.HasFullscreenVideoPager}\n" +
-                                $"Найден видеоплеер внутри пейджера: {screen.HasTikTokVideoPlayer}\n",
+                                $"Найдены признаки видео внутри пейджера: {screen.HasTikTokVideoPlayer}\n",
             _ => $"Выбрана вкладка Клипы: {screen.SelectedClipsTab}\n" +
                  $"Найден полноэкранный клип: {ClipRules.HasFullscreenClipPlayer(screen.Package, screen.Ids)}\n"
         };
         string report = $"BSS\nПакет: {screen.Package}\nВремя: {DateTime.Now:dd.MM HH:mm:ss}\n" +
             $"Правило совпало: {screen.ShouldBlock}\n" + playerDetails +
-            (screen.Package == BrowserShortsDetector.Chrome
+            (BrowserShortsDetector.IsSupported(screen.Package)
                 ? ""
                 : "Структура (без текста экранов):\n" + string.Join("\n", screen.Structure));
         GuardState.Preferences(this).Edit()!.PutString("report:" + screen.Package, report)!.Apply();
@@ -137,8 +141,8 @@ public sealed class ShortsService : AccessibilityService
     private ClipScreen? ReadScreen(string requested)
     {
         using var root = RootInActiveWindow;
-        bool readChromeAddress = requested == BrowserShortsDetector.Chrome && GuardState.EnabledFor(this, requested);
-        return AndroidScreenReader.Read(root, requested, readChromeAddress);
+        bool readBrowserAddress = BrowserShortsDetector.IsSupported(requested) && GuardState.EnabledFor(this, requested);
+        return AndroidScreenReader.Read(root, requested, readBrowserAddress);
     }
 
     public override void OnInterrupt() { }

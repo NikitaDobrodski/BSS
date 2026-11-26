@@ -12,11 +12,11 @@ internal static class GuardState
     internal static bool EnabledFor(Context context, string package) =>
         Enabled(context) && AppEnabled(context, package);
     internal static bool AppEnabled(Context context, string package) =>
-        Preferences(context).GetBoolean("app:" + package, package != BrowserShortsDetector.Chrome);
+        Preferences(context).GetBoolean("app:" + package, !BrowserShortsDetector.IsSupported(package));
     internal static void SetAppEnabled(Context context, string package, bool enabled)
     {
         Preferences(context).Edit()!.PutBoolean("app:" + package, enabled)!.Apply();
-        if (package == BrowserShortsDetector.Chrome)
+        if (BrowserShortsDetector.IsSupported(package))
             BrowserSubscriptionChanged?.Invoke();
     }
     internal static void SetEnabled(Context context, bool enabled)

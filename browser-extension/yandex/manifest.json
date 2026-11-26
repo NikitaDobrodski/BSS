@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "BlockShotsStop",
+  "version": "0.1.0",
+  "description": "Блокирует короткие ленты YouTube, ВКонтакте, VK Видео, RUTUBE и TikTok.",
+  "permissions": ["declarativeNetRequest", "webNavigation"],
+  "background": { "service_worker": "service-worker.js" },
+  "declarative_net_request": {
+    "rule_resources": [
+      { "id": "shorts", "enabled": true, "path": "rules.json" }
+    ]
+  }
+}

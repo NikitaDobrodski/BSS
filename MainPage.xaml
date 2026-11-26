@@ -69,10 +69,13 @@
                     BackgroundColor="{StaticResource PanelBackground}"
                     StrokeThickness="0"
                     StrokeShape="RoundRectangle 14">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <Label Text="YouTube Shorts в Chrome" VerticalOptions="Center" />
+                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Label Text="Chrome" VerticalOptions="Center" />
                     <Switch x:Name="ChromeShortsSwitch" Grid.Column="1"
-                            SemanticProperties.Description="Блокировать YouTube Shorts в Chrome" />
+                            SemanticProperties.Description="Блокировать короткие видео в Chrome" />
+                    <Label Grid.Row="1" Text="Яндекс Браузер" VerticalOptions="Center" />
+                    <Switch x:Name="YandexShortsSwitch" Grid.Row="1" Grid.Column="1"
+                            SemanticProperties.Description="Блокировать короткие видео в Яндекс Браузере" />
                 </Grid>
             </Border>
 

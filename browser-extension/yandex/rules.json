@@ -1,0 +1,47 @@
+[
+  {
+    "id": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://(www\\.|m\\.)?youtube\\.com(:[0-9]+)?/shorts([/?#]|$)",
+      "isUrlFilterCaseSensitive": true,
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 2,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://(www\\.|m\\.)?vk\\.com(:[0-9]+)?/(clips([/?#]|$)|clip-?[0-9]+_[0-9]+/*([?#]|$))",
+      "isUrlFilterCaseSensitive": true,
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 3,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://(www\\.|m\\.)?vkvideo\\.ru(:[0-9]+)?/(clips([/?#]|$)|clip-?[0-9]+_[0-9]+/*([?#]|$))",
+      "isUrlFilterCaseSensitive": true,
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 4,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://(www\\.|m\\.)?rutube\\.ru(:[0-9]+)?/((feeds/)?shorts([/?#]|$)|(u|channel)/[^/?#]+/shorts/*([?#]|$))",
+      "isUrlFilterCaseSensitive": true,
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 5,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://(www\\.|m\\.)?tiktok\\.com(:[0-9]+)?/(foryou|following|@[^/?#]+/video/[0-9]+)/*([?#]|$)",
+      "isUrlFilterCaseSensitive": true,
+      "resourceTypes": ["main_frame"]
+    }
+  }
+]

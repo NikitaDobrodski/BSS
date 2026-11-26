@@ -133,6 +133,34 @@ if (!siblingPlayer.HasFullscreenVideoPager || !siblingPlayer.Ids.Contains(videoP
 var insideFeed = Node(feedWrapper, feedBounds, Node(feedPager, feedBounds, player));
 if (!ScreenRecognizer.Recognize(tikTok, Node(null, window, insideFeed)).ShouldBlock)
     throw new Exception("TikTok player nested inside the fullscreen pager must block");
+
+var filteredWrapperId = tikTok + ":id/ii2";
+var longPress = Node(tikTok + ":id/long_press_layout", feedBounds);
+var author = Node(tikTok + ":id/user_avatar", new(936, 1134, 1030, 1240));
+var filteredPager = Node(feedPager, feedBounds, Node(null, feedBounds, author), longPress) with
+{
+    ClassName = "androidx.viewpager.widget.ViewPager"
+};
+var filteredFeedCases = new (string Name, ScreenNode Wrapper, bool Expected)[]
+{
+    ("TikTok 47.9.3 feed as reported by the accessibility service",
+        Node(filteredWrapperId, window, filteredPager), true),
+    ("TikTok application tabs with matching IDs",
+        Node(filteredWrapperId, window, filteredPager with { ClassName = "X.04OY" }), false),
+    ("TikTok pager outside the known feed hierarchy", Node(null, window, filteredPager), false),
+    ("TikTok filtered player controls outside the feed pager",
+        Node(filteredWrapperId, window, filteredPager with { Children = [longPress] }, author), false),
+    ("TikTok filtered player without the long-press overlay",
+        Node(filteredWrapperId, window, filteredPager with { Children = [author] }), false)
+};
+foreach (var test in filteredFeedCases)
+{
+    var appPager = Node(feedPager, window, test.Wrapper) with { ClassName = "X.04OY" };
+    var root = Node(null, window, Node(feedPager, window, Node(tikTok + ":id/oyb", window, appPager)));
+    if (ScreenRecognizer.Recognize(tikTok, root).ShouldBlock != test.Expected)
+        throw new Exception($"FAILED: {test.Name}");
+    Console.WriteLine($"PASS: {test.Name}");
+}
 Console.WriteLine("PASS: TikTok package routing");
 Console.WriteLine("PASS: TikTok player outside the fullscreen pager remains open");
 Console.WriteLine("PASS: TikTok nested player blocks");
@@ -152,7 +180,7 @@ var chromeCases = new (string Name, string? Address, BrowserShortsState Expected
     ("Shorts feed landing page", "https://www.youtube.com/shorts?feature=share", BrowserShortsState.YouTubeShorts),
     ("Shorts address with a URL in the query", "m.youtube.com/shorts/abcdefghijk?next=https://example.com", BrowserShortsState.YouTubeShorts),
     ("Regular YouTube video", "https://m.youtube.com/watch?v=abcdefghijk", BrowserShortsState.OtherPage),
-    ("Only the YouTube host is visible", "m.youtube.com", BrowserShortsState.YouTubeWithoutPath),
+    ("Only the YouTube host is visible", "m.youtube.com", BrowserShortsState.SiteWithoutPath),
     ("YouTube search containing a Shorts link", "https://www.youtube.com/results?search_query=youtube.com%2Fshorts%2F", BrowserShortsState.OtherPage),
     ("Lookalike YouTube host", "https://youtube.com.example.org/shorts/abcdefghijk", BrowserShortsState.OtherPage),
     ("Another domain with a Shorts path", "https://example.org/shorts/abcdefghijk", BrowserShortsState.OtherPage),
@@ -176,6 +204,59 @@ if (!ClipRules.IsSupported(BrowserShortsDetector.Chrome) ||
     new ClipScreen("com.example.other", [], false, [], BrowserState: BrowserShortsState.YouTubeShorts).ShouldBlock)
     throw new Exception("Chrome package routing or address editing guard failed");
 Console.WriteLine("PASS: Chrome package routing and address editing guard");
+var webCases = new (string Address, bool Block)[]
+{
+    ("https://m.youtube.com/shorts/abcdefghijk", true),
+    ("https://vk.com/clips", true),
+    ("m.vk.com/clip-123_456", true),
+    ("https://m.vkvideo.ru/clips/club123", true),
+    ("https://vkvideo.ru/clip123_456", true),
+    ("https://rutube.ru/feeds/shorts/", true),
+    ("https://rutube.ru/shorts/a930fc3d073038eaf4fdc962e0e6b5cb/", true),
+    ("https://rutube.ru/u/rutube/shorts/", true),
+    ("https://www.tiktok.com/foryou", true),
+    ("https://www.tiktok.com/@user/video/6718335390845095173", true),
+    ("https://youtube.com/watch?v=abcdefghijk", false),
+    ("https://vk.com/clip-123_4567abc", false),
+    ("https://vk.com/clip123_456/extra", false),
+    ("https://vk.com/im?sel=123", false),
+    ("https://vkvideo.ru/video-123_456", false),
+    ("https://rutube.ru/video/a930fc3d073038eaf4fdc962e0e6b5cb/", false),
+    ("https://rutube.ru/info/shorts/", false),
+    ("https://www.tiktok.com/@user", false),
+    ("https://www.tiktok.com/@user/photo/6718335390845095173", false),
+    ("https://www.tiktok.com/@user/video/not-a-video", false),
+    ("https://www.tiktok.com/", false),
+    ("https://vm.tiktok.com/example", false),
+    ("https://rutube.ru.example.org/feeds/shorts", false),
+    ("https://vk.com@evil.example/clips", false),
+    ("https://example.org/?url=https://vk.com/clips", false)
+};
+foreach (string browser in new[] { BrowserShortsDetector.Chrome, BrowserShortsDetector.Yandex })
+{
+    if (!ClipRules.IsSupported(browser) || new ClipScreen(browser, [], false, [], BrowserState: BrowserShortsState.Editing).ShouldBlock)
+        throw new Exception($"FAILED: {browser} package routing or address editing guard");
+    foreach (var test in webCases)
+    {
+        var result = BrowserShortsDetector.ClassifyAddress(test.Address);
+        var screen = new ClipScreen(browser, [], false, [], BrowserState: result);
+        if (screen.ShouldBlock != test.Block)
+            throw new Exception($"FAILED: {browser} {test.Address}");
+    }
+    Console.WriteLine($"PASS: {browser} URL rules ({webCases.Length} cases)");
+}
+var yandexCases = new (string Description, BrowserShortsState Expected)[]
+{
+    ("Умная адресная строка. rutube.ru/feeds/shorts/", BrowserShortsState.RutubeShorts),
+    ("Умная адресная строка. rutube.ru Shorts: Shorts – смотреть онлайн", BrowserShortsState.SiteWithoutPath),
+    ("Умная адресная строка. rutube.ru vk.com/clips", BrowserShortsState.SiteWithoutPath),
+    ("Умная адресная строка. example.org https://vk.com/clips", BrowserShortsState.OtherPage),
+    ("https://m.youtube.com/shorts/abcdefghijk", BrowserShortsState.YouTubeShorts)
+};
+foreach (var test in yandexCases)
+    if (BrowserShortsDetector.ClassifyYandexAddress(test.Description) != test.Expected)
+        throw new Exception($"FAILED: Yandex address description {test.Description}");
+Console.WriteLine("PASS: Yandex address descriptions");
 Console.WriteLine("Rule checks and report replay passed. APK on-device behavior still needs verification.");
 
 static ScreenNode Node(string? id, ScreenBounds bounds, params ScreenNode[] children) =>
